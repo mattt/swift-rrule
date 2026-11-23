@@ -251,11 +251,20 @@ struct ExpansionTests {
         }
     #endif
 
+    /// Compares Foundation's expansion of the converted rule with the expected dates.
+    ///
+    /// The expected results and the known issues are those of Foundation in the 2026 releases,
+    /// such as macOS 27.
+    /// Earlier releases give other dates for more of these rules,
+    /// and trap for one of them,
+    /// so the comparison runs only from those releases on.
+    /// A known issue is intermittent
+    /// so that a later release that corrects it doesn't fail the test.
     private func expectExpansion(_ example: ExpansionExample) throws {
-        guard #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) else { return }
+        guard #available(macOS 27, iOS 27, tvOS 27, watchOS 27, visionOS 27, *) else { return }
         let dates = try Self.expansion(of: example)
         if let knownIssue = example.knownIssue {
-            withKnownIssue(Comment(rawValue: knownIssue)) {
+            withKnownIssue(Comment(rawValue: knownIssue), isIntermittent: true) {
                 #expect(dates == Self.expectedExpansion(of: example))
             }
         } else {
