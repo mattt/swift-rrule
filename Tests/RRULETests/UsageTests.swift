@@ -32,7 +32,6 @@ struct UsageTests {
 
     @Test("Dates")
     func dates() throws {
-        guard #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) else { return }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
         let start = try #require(calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)))
@@ -41,12 +40,21 @@ struct UsageTests {
         // The README calls `formatted()`, which uses the current locale.
         #expect(rule.formatted(.recurrence(locale: Locale(identifier: "en_US"))) == "Annually in November on the fourth Thursday")
 
-        let thanksgiving = try #require(Calendar.RecurrenceRule(rule, calendar: calendar))
         let style = Date.FormatStyle(date: .long, locale: Locale(identifier: "en_US"), timeZone: calendar.timeZone)
         #expect(
-            thanksgiving.recurrences(of: start).prefix(3).map { $0.formatted(style) }
+            rule.recurrences(of: start, calendar: calendar).prefix(3).map { $0.formatted(style) }
                 == ["November 26, 2026", "November 25, 2027", "November 23, 2028"]
         )
+    }
+
+    @Test("Converting to Foundation")
+    func convertingToFoundation() throws {
+        guard #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) else { return }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        let rule = try RecurrenceRule.parse("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH")
+        let foundationRule = Calendar.RecurrenceRule(rule, calendar: calendar)
+        #expect(foundationRule?.weekdays == [.nth(4, .thursday)])
     }
 
     @Test("Foundation recurrence rules")

@@ -9,9 +9,7 @@ import Foundation
 /// To name that day in a description,
 /// pass the start date to ``localizedDescription(in:startingAt:)``.
 ///
-/// To list the dates of a rule, convert it to Foundation's `Calendar.RecurrenceRule`
-/// with `Calendar.RecurrenceRule.init(_:calendar:)`,
-/// and call its `recurrences(of:in:)` method.
+/// To list the dates of a rule, call ``recurrences(of:in:calendar:)``.
 ///
 /// Every stored value is in the range that RFC 5545 defines.
 /// The initializer that takes the values of rule parts

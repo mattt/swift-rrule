@@ -120,7 +120,12 @@ extension RecurrenceRule {
 @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 extension Calendar.RecurrenceRule {
     /// Creates a Foundation recurrence rule from a recurrence rule,
-    /// so that you can expand the rule into dates with `recurrences(of:in:)`.
+    /// for the Foundation APIs that take a `Calendar.RecurrenceRule`.
+    ///
+    /// To list the dates of a rule, call ``RRULE/RecurrenceRule/recurrences(of:in:calendar:)``.
+    /// As of the macOS 27 SDK, the dates of Foundation's `recurrences(of:in:)`
+    /// differ from RFC 5545 for some rules,
+    /// such as a weekday without an occurrence in a monthly rule.
     ///
     /// The conversion carries the frequency, the interval,
     /// the count or the date that ends the rule,

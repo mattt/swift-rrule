@@ -1,6 +1,6 @@
 # ``RRULE``
 
-Parse iCalendar recurrence rules and describe them in natural language.
+Parse iCalendar recurrence rules, list their dates, and describe them in natural language.
 
 ## Overview
 
@@ -33,23 +33,23 @@ Pass the start date to ``RecurrenceRule/localizedDescription(in:startingAt:)``
 to name that day, as in "Monthly on the 15th".
 
 To list the dates of a rule,
-convert it to Foundation's `Calendar.RecurrenceRule`
-with `Calendar.RecurrenceRule.init(_:calendar:)`,
-and call `recurrences(of:in:)`:
+call ``RecurrenceRule/recurrences(of:in:calendar:)``
+with the start date of the first event.
+The method gives the dates that RFC 5545 defines,
+in a lazy sequence:
 
 ```swift
 let rule = try RecurrenceRule.parse("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH")
-if let thanksgiving = Calendar.RecurrenceRule(rule, calendar: calendar) {
-    for date in thanksgiving.recurrences(of: start).prefix(3) {
-        print(date.formatted(date: .long, time: .omitted))
-    }
+for date in rule.recurrences(of: start, calendar: calendar).prefix(3) {
+    print(date.formatted(date: .long, time: .omitted))
 }
 ```
 
-As of the macOS 27 SDK, Foundation expands some rules differently from RFC 5545,
-such as a weekday without an occurrence in a monthly rule,
-for which it gives only the first such weekday in the month.
-RRULE converts the rule faithfully and doesn't correct the dates.
+To use a rule with the Foundation APIs that take a `Calendar.RecurrenceRule`,
+convert it with `Calendar.RecurrenceRule.init(_:calendar:)`.
+As of the macOS 27 SDK, Foundation's own expansion differs from RFC 5545
+for some rules, such as a weekday without an occurrence in a monthly rule,
+so list dates with ``RecurrenceRule/recurrences(of:in:calendar:)``.
 
 RRULE also converts a `Calendar.RecurrenceRule` to a ``RecurrenceRule``
 with ``RecurrenceRule/init(_:)``, and describes it.
@@ -60,6 +60,10 @@ with ``RecurrenceRule/init(_:)``, and describes it.
 
 - ``RecurrenceRule``
 - ``RecurrenceRule/ParseError``
+
+### Dates
+
+- ``RecurrenceRule/recurrences(of:in:calendar:)``
 
 ### Descriptions
 

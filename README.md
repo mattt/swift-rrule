@@ -1,6 +1,6 @@
 # RRULE
 
-RRULE parses iCalendar recurrence rules and describes them in natural language.
+RRULE parses iCalendar recurrence rules, lists their dates, and describes them in natural language.
 It reads the `RRULE` strings that RFC 5545 defines,
 such as `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`,
 and describes them in English, German, Spanish, or French,
@@ -8,10 +8,9 @@ such as "Every other week on Monday, Wednesday, and Friday".
 
 Foundation can expand a recurrence with `Calendar.RecurrenceRule`,
 but it can't parse an `RRULE` string or describe a rule to a person.
-RRULE does both.
+RRULE does both, and it lists the dates of a rule as RFC 5545 defines them.
 It also converts rules to and from `Calendar.RecurrenceRule`,
-so that Foundation can list a parsed rule's dates
-and RRULE can describe Foundation's rules.
+so that RRULE can describe Foundation's rules.
 
 ## Requirements
 
@@ -84,33 +83,58 @@ print(monthly.localizedDescription(in: english, startingAt: start))
 
 ### Dates
 
-To list the dates of a rule,
-convert it to a `Calendar.RecurrenceRule`
-and call its `recurrences(of:in:)` method:
+To list the dates of a rule, call `recurrences(of:in:calendar:)`
+with the start date of the first event:
+
+```swift
+var calendar = Calendar(identifier: .gregorian)
+calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+let start = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+
+let rule = try RecurrenceRule.parse("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH")
+print(rule.formatted())
+// Annually in November on the fourth Thursday
+
+let style = Date.FormatStyle(date: .long, locale: Locale(identifier: "en_US"), timeZone: calendar.timeZone)
+for date in rule.recurrences(of: start, calendar: calendar).prefix(3) {
+    print(date.formatted(style))
+}
+// November 26, 2026
+// November 25, 2027
+// November 23, 2028
+```
+
+The sequence is lazy, so a rule without an end gives dates as long as you ask for them.
+It gives the dates that RFC 5545 defines,
+including its examples in section 3.8.5.3:
+
+- The start date supplies what the rule leaves out,
+  such as the time of day.
+  The sequence contains the start date if the rule matches it,
+  and otherwise begins with the first date after it that the rule matches.
+- The dates are local times in the calendar's time zone.
+  A time that clocks skip, such as 2:30 AM when clocks go forward at 2 AM,
+  moves forward by the gap, to 3:30 AM;
+  a time that occurs twice refers to its first occurrence.
+- A date that doesn't exist, such as February 30, is skipped.
+- A rule that can never match, such as `FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30`,
+  ends its sequence after one full cycle of the Gregorian calendar,
+  400 years for most rules.
+
+### Converting to Foundation
+
+`Calendar.RecurrenceRule(_:calendar:)` converts a rule
+for the Foundation APIs that take a `Calendar.RecurrenceRule`:
 
 ```swift
 if #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
-    let start = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1))!
-
-    let rule = try RecurrenceRule.parse("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH")
-    print(rule.formatted())
-    // Annually in November on the fourth Thursday
-
-    if let thanksgiving = Calendar.RecurrenceRule(rule, calendar: calendar) {
-        let style = Date.FormatStyle(date: .long, locale: Locale(identifier: "en_US"), timeZone: calendar.timeZone)
-        for date in thanksgiving.recurrences(of: start).prefix(3) {
-            print(date.formatted(style))
-        }
-        // November 26, 2026
-        // November 25, 2027
-        // November 23, 2028
-    }
+    let foundationRule = Calendar.RecurrenceRule(rule, calendar: calendar)
+    print(foundationRule?.weekdays == [.nth(4, .thursday)])
+    // true
 }
 ```
 
-`Calendar.RecurrenceRule(_:calendar:)` carries every part of the rule.
+The initializer carries every part of the rule.
 RFC 5545 starts each week on the `WKST` day, Monday by default,
 and counts as week 1 the first week with at least four days in the year,
 so the result's calendar has these settings
@@ -122,28 +146,16 @@ and for a calendar whose months differ from the Gregorian calendar's.
 
 ### Foundation's dates
 
-As of the macOS 27 SDK,
-Foundation expands some rules differently from RFC 5545:
-
-- A weekday without an occurrence in a monthly or yearly rule,
-  such as `BYDAY=TU`, gives only the first such weekday in the month.
-  `BYSETPOS` over such weekdays,
-  such as `BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1` for the last weekday of the month,
-  selects from those days only.
-- `BYWEEKNO` with `BYDAY` keeps the day of the month of the start date,
-  so `FREQ=YEARLY;BYWEEKNO=20;BYDAY=MO` gives only years
-  in which that day is the Monday of week 20.
-- For a yearly rule with an ordinal weekday and no `BYMONTH`,
-  such as `FREQ=YEARLY;BYDAY=20MO`,
-  Foundation searches for about a minute and then traps.
-
-For example, RFC 5545 gives these dates for `FREQ=MONTHLY;INTERVAL=2;BYDAY=TU`
-from September 2, 1997:
-September 2, 9, 16, 23, and 30, then November 4, 11, 18, and 25.
-Foundation gives September 2, 1997, November 4, 1997, and January 6, 1998.
-
-RRULE converts the rule faithfully
-and doesn't correct the dates that Foundation gives.
+To list a rule's dates, use `recurrences(of:in:calendar:)`
+in place of Foundation's `recurrences(of:in:)`.
+As of the macOS 27 SDK, Foundation gives other dates than RFC 5545
+for some common rules,
+such as a weekday without an occurrence in a monthly or yearly rule:
+for `FREQ=MONTHLY;INTERVAL=2;BYDAY=TU` from September 2, 1997,
+Foundation gives only the first Tuesday of each month,
+September 2, November 4, and January 6.
+It also differs for `BYSETPOS` over such weekdays and for `BYWEEKNO`,
+and for `FREQ=YEARLY;BYDAY=20MO` it searches for about a minute and then traps.
 
 ### Foundation recurrence rules
 
@@ -188,9 +200,6 @@ A description never mixes the templates of one language with the names of anothe
 
 ### Limits
 
-- RRULE doesn't expand rules into dates itself;
-  Foundation does, after the conversion in [Dates](#dates),
-  with the differences in [Foundation's dates](#foundations-dates).
 - Without a start date,
   a rule that takes its day from the start date gets a general description,
   such as "Monthly".

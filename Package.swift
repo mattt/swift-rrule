@@ -24,7 +24,8 @@ let package = Package(
         ),
         .testTarget(
             name: "RRULETests",
-            dependencies: ["RRULE"]
+            dependencies: ["RRULE"],
+            resources: [.copy("Resources/dateutil-fixture.json")]
         ),
     ]
 )
