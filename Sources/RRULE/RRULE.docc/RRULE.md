@@ -1,13 +1,9 @@
 # ``RRULE``
 
-Parse iCalendar recurrence rules, list their dates, and describe them in natural language.
+Parse iCalendar recurrence rules (RFC 5545), list their dates,
+and describe them in natural language.
 
 ## Overview
-
-RRULE reads the recurrence rule strings that RFC 5545 defines,
-such as `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`,
-and describes them in English, German, Spanish, or French,
-such as "Every other week on Monday, Wednesday, and Friday".
 
 ```swift
 import RRULE
@@ -17,26 +13,20 @@ print(rule.localizedDescription(in: Locale(identifier: "en_US")))
 // Every other week on Monday, Wednesday, and Friday
 ```
 
-The parser rejects unknown, repeated, and malformed rule parts,
-and values outside the ranges that RFC 5545 permits,
-so a description never leaves out part of a rule.
-Every value of a rule contributes to its description.
+The parser rejects unknown, repeated, or malformed parts and out-of-range values.
+Every value of a rule except the week start (`WKST`) contributes to its description.
 
-The language of the locale selects the sentence templates.
-The names of weekdays and months, lists, ordinals, numbers, dates, and times
+The locale selects English, German, Spanish, or French sentence templates.
+Other languages fall back to English throughout.
+The names of weekdays and months, lists, numbers, dates, and times
 come from the CLDR data in Foundation.
-A locale in a language without templates gets an English description,
-so a description never mixes languages.
 
-Some rules take their day from the start date (`DTSTART`) of the event.
-Pass the start date to ``RecurrenceRule/localizedDescription(in:startingAt:)``
-to name that day, as in "Monthly on the 15th".
+Some rules take their day from the event's start date (`DTSTART`).
+Pass it to ``RecurrenceRule/localizedDescription(in:startingAt:)``
+to name the day, as in "Monthly on the 15th".
 
-To list the dates of a rule,
-call ``RecurrenceRule/recurrences(of:in:calendar:)``
-with the start date of the first event.
-The method gives the dates that RFC 5545 defines,
-in a lazy sequence:
+Pass the first event's start date to ``RecurrenceRule/recurrences(of:in:calendar:)``
+for a lazy sequence of RFC 5545 dates.
 
 ```swift
 let rule = try RecurrenceRule.parse("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH")
@@ -45,14 +35,14 @@ for date in rule.recurrences(of: start, calendar: calendar).prefix(3) {
 }
 ```
 
-To use a rule with the Foundation APIs that take a `Calendar.RecurrenceRule`,
-convert it with `Calendar.RecurrenceRule.init(_:calendar:)`.
-As of the macOS 27 SDK, Foundation's own expansion differs from RFC 5545
-for some rules, such as a weekday without an occurrence in a monthly rule,
-so list dates with ``RecurrenceRule/recurrences(of:in:calendar:)``.
+For Foundation APIs, convert to `Calendar.RecurrenceRule`
+with `Calendar.RecurrenceRule.init(_:calendar:)`.
+``RecurrenceRule/init(_:)`` converts Foundation rules to ``RecurrenceRule``
+so you can describe them.
 
-RRULE also converts a `Calendar.RecurrenceRule` to a ``RecurrenceRule``
-with ``RecurrenceRule/init(_:)``, and describes it.
+As of the macOS 27 SDK, Foundation's dates differ from RFC 5545
+for some rules, including monthly rules with an unnumbered weekday.
+Use ``RecurrenceRule/recurrences(of:in:calendar:)`` to list dates.
 
 ## Topics
 

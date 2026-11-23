@@ -1,36 +1,29 @@
 # RRULE
 
-RRULE parses iCalendar recurrence rules, lists their dates, and describes them in natural language.
-It reads the `RRULE` strings that RFC 5545 defines,
-such as `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`,
-and describes them in English, German, Spanish, or French,
-such as "Every other week on Monday, Wednesday, and Friday".
-
-Foundation can expand a recurrence with `Calendar.RecurrenceRule`,
-but it can't parse an `RRULE` string or describe a rule to a person.
-RRULE does both, and it lists the dates of a rule as RFC 5545 defines them.
-It also converts rules to and from `Calendar.RecurrenceRule`,
-so that RRULE can describe Foundation's rules.
+RRULE parses iCalendar recurrence rules (RFC 5545), lists their dates,
+and describes them in English, German, Spanish, or French.
+Foundation's `Calendar.RecurrenceRule` lists dates
+but can't parse `RRULE` strings or describe rules in words.
 
 ## Requirements
 
 - macOS 13+, iOS 16+, tvOS 16+, watchOS 9+, or visionOS 1+
 - Swift 6.1+ (Xcode 16.3+)
 
-Converting a `RecurrenceRule` to a `Calendar.RecurrenceRule` needs
+Conversion to `Calendar.RecurrenceRule` requires
 macOS 15+, iOS 18+, tvOS 18+, watchOS 11+, or visionOS 2+.
-Converting a `Calendar.RecurrenceRule` to a `RecurrenceRule` needs
+Conversion to `RecurrenceRule` requires
 macOS 15.2+, iOS 18.2+, tvOS 18.2+, watchOS 11.2+, or visionOS 2.2+.
 
 ## Installation
 
-Add the package to your `Package.swift`:
+Add the package to your `Package.swift`.
 
 ```swift
 .package(url: "https://github.com/mattt/swift-rrule.git", from: "0.1.0")
 ```
 
-Then add `.product(name: "RRULE", package: "swift-rrule")` to your target's dependencies.
+Add `.product(name: "RRULE", package: "swift-rrule")` to your target's dependencies.
 
 ## Usage
 
@@ -49,25 +42,27 @@ print(rule)
 // FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR
 ```
 
-`RecurrenceRule.parse(_:)` throws a `RecurrenceRule.ParseError`
-that says what is wrong with a string,
+`RecurrenceRule.parse(_:)` throws a `RecurrenceRule.ParseError`,
 such as `.unknownRulePart("BYDA")`.
 `RecurrenceRule(parsing:)` returns `nil` instead.
-Both accept an optional `RRULE:` prefix.
-They reject unknown, repeated, and malformed rule parts,
-and values outside the ranges that RFC 5545 permits,
-so a description never leaves out part of a rule.
+The `RRULE:` prefix is optional.
+Both parsers reject unknown, repeated, or malformed parts and out-of-range values,
+so a description covers every part of a rule except the week start (`WKST`).
 
-A rule's `description` is its RFC 5545 form.
-For a description in natural language, use `formatted()`,
+`description` returns the RFC 5545 string.
+For a localized description, use `formatted()`,
 `formatted(_:)` with a `RecurrenceRule.FormatStyle`,
 or `localizedDescription(in:startingAt:)`.
 
+The locale selects the templates and names, with English as the fallback.
+The names of weekdays and months, lists, numbers, dates, and times
+come from the CLDR data in Foundation,
+as in "9 AM" (`en_US`) and "09 Uhr" (`de_DE`).
+
 ### Start dates
 
-Some rules take their day from the start date (`DTSTART`) of the event.
-For example, `FREQ=MONTHLY` repeats on the day of the month of the start date.
-Pass the start date, if you know it, to name that day:
+Pass the event's start date (`DTSTART`) to name an implied day,
+such as the day of the month for `FREQ=MONTHLY`.
 
 ```swift
 let monthly = try RecurrenceRule.parse("FREQ=MONTHLY")
@@ -83,8 +78,10 @@ print(monthly.localizedDescription(in: english, startingAt: start))
 
 ### Dates
 
-To list the dates of a rule, call `recurrences(of:in:calendar:)`
-with the start date of the first event:
+Pass the first event's start date to `recurrences(of:in:calendar:)`.
+The lazy sequence gives the dates that RFC 5545 defines,
+including its examples in section 3.8.5.3.
+For open-ended rules, take a prefix.
 
 ```swift
 var calendar = Calendar(identifier: .gregorian)
@@ -104,27 +101,21 @@ for date in rule.recurrences(of: start, calendar: calendar).prefix(3) {
 // November 23, 2028
 ```
 
-The sequence is lazy, so a rule without an end gives dates as long as you ask for them.
-It gives the dates that RFC 5545 defines,
-including its examples in section 3.8.5.3:
-
-- The start date supplies what the rule leaves out,
-  such as the time of day.
-  The sequence contains the start date if the rule matches it,
-  and otherwise begins with the first date after it that the rule matches.
-- The dates are local times in the calendar's time zone.
-  A time that clocks skip, such as 2:30 AM when clocks go forward at 2 AM,
-  moves forward by the gap, to 3:30 AM;
-  a time that occurs twice refers to its first occurrence.
-- A date that doesn't exist, such as February 30, is skipped.
+- `DTSTART` supplies missing parts, such as the time of day.
+  The sequence begins with the first match on or after `DTSTART`.
+- Dates use the calendar's time zone.
+  Skipped times move forward by the gap.
+  When clocks advance at 2 AM, 2:30 AM becomes 3:30 AM.
+  Repeated times resolve to the first occurrence.
+- The sequence skips nonexistent dates, such as February 30.
 - A rule that can never match, such as `FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30`,
   ends its sequence after one full cycle of the Gregorian calendar,
   400 years for most rules.
 
-### Converting to Foundation
+### Foundation recurrence rules
 
-`Calendar.RecurrenceRule(_:calendar:)` converts a rule
-for the Foundation APIs that take a `Calendar.RecurrenceRule`:
+`Calendar.RecurrenceRule(_:calendar:)` preserves every rule part
+along with the calendar's time zone and locale.
 
 ```swift
 if #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) {
@@ -134,30 +125,16 @@ if #available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) {
 }
 ```
 
-The initializer carries every part of the rule.
-RFC 5545 starts each week on the `WKST` day, Monday by default,
-and counts as week 1 the first week with at least four days in the year,
-so the result's calendar has these settings
-in place of the `firstWeekday` and `minimumDaysInFirstWeek` of the argument.
-It keeps the argument's time zone and locale.
-The initializer returns `nil` for a rule that Foundation can't represent,
-such as one that repeats every second,
-and for a calendar whose months differ from the Gregorian calendar's.
+The initializer sets `firstWeekday` to `WKST` (Monday by default)
+and `minimumDaysInFirstWeek` to four.
+Under RFC 5545, week 1 is the first with at least four days in the year.
+Conversion returns `nil` for unsupported rules, including those that repeat every second.
 
-### Foundation's dates
-
-To list a rule's dates, use `recurrences(of:in:calendar:)`
-in place of Foundation's `recurrences(of:in:)`.
-As of the macOS 27 SDK, Foundation gives other dates than RFC 5545
-for some common rules,
-such as a weekday without an occurrence in a monthly or yearly rule:
-for `FREQ=MONTHLY;INTERVAL=2;BYDAY=TU` from September 2, 1997,
-Foundation gives only the first Tuesday of each month,
-September 2, November 4, and January 6.
-It also differs for `BYSETPOS` over such weekdays and for `BYWEEKNO`,
-and for `FREQ=YEARLY;BYDAY=20MO` it searches for about a minute and then traps.
-
-### Foundation recurrence rules
+`RecurrenceRule(_:)` carries every part of the Foundation rule,
+including the first weekday of its calendar as the week start.
+Matching and repeated-time policies don't carry over
+because RFC 5545 has no equivalent.
+You can also describe a Foundation rule directly.
 
 ```swift
 if #available(macOS 15.2, iOS 18.2, tvOS 18.2, watchOS 11.2, visionOS 2.2, *) {
@@ -180,30 +157,25 @@ if #available(macOS 15.2, iOS 18.2, tvOS 18.2, watchOS 11.2, visionOS 2.2, *) {
 }
 ```
 
-`RecurrenceRule(_:)` carries every part of the Foundation rule,
-including the first weekday of its calendar as the week start.
-It returns `nil` for a rule that RFC 5545 can't represent,
-such as one with a leap month
-or one in a calendar whose months differ from the Gregorian calendar's.
-The matching and repeated-time policies have no RFC 5545 counterpart,
-so they don't carry over.
+`RecurrenceRule(_:)` returns `nil` for rules RFC 5545 can't represent,
+such as those with leap months.
+Both initializers return `nil` for calendars
+whose months differ from the Gregorian calendar's.
 
-### Languages
+## Limits
 
-The language of the locale selects the sentence templates:
-English, German, Spanish, or French.
-A locale in any other language gets an English description.
-The names of weekdays and months, lists, ordinals, numbers, dates, and times
-come from the CLDR data in Foundation,
-so they match the locale, such as "9 AM" in `en_US` and "09 Uhr" in `de_DE`.
-A description never mixes the templates of one language with the names of another.
+As of the macOS 27 SDK, Foundation's `recurrences(of:in:)`
+returns different dates than RFC 5545 specifies for some common rules,
+including monthly and yearly rules that specify a weekday without an ordinal.
+For `FREQ=MONTHLY;INTERVAL=2;BYDAY=TU` from September 2, 1997,
+Foundation gives only the first Tuesday of every other month
+(September 2, November 4, and January 6).
+Dates also differ for `BYSETPOS` over those weekdays and for `BYWEEKNO`.
+For `FREQ=YEARLY;BYDAY=20MO`,
+Foundation searches for 30 seconds or more and then traps.
+Use RRULE's `recurrences(of:in:calendar:)` to list dates.
 
-### Limits
-
-- Without a start date,
-  a rule that takes its day from the start date gets a general description,
-  such as "Monthly".
-- An `UNTIL` value without a time zone resolves in the current time zone.
+`UNTIL` uses the current time zone when none is specified.
 
 ## Development
 
@@ -212,8 +184,9 @@ swift test
 swift format lint --strict --recursive .
 ```
 
-`UsageTests` runs the examples in this file; keep the two in sync.
+`UsageTests` runs the README examples.
 
 ## License
 
-MIT. See [LICENSE.md](LICENSE.md).
+MIT.
+See [LICENSE.md](LICENSE.md).
