@@ -173,6 +173,9 @@ Foundation gives only the first Tuesday of every other month
 Dates also differ for `BYSETPOS` over those weekdays and for `BYWEEKNO`.
 For `FREQ=YEARLY;BYDAY=20MO`,
 Foundation searches for 30 seconds or more and then traps.
+On macOS 15 and macOS 26, Foundation also gives other dates
+for converted rules with an ordinal weekday:
+`FREQ=YEARLY;BYMONTH=11;BYDAY=4TH` from 2026 starts on November 19, not November 26.
 Use RRULE's `recurrences(of:in:calendar:)` to list dates.
 
 `UNTIL` uses the current time zone when none is specified.
