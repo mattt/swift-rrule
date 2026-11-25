@@ -75,6 +75,16 @@ struct RecurrencesTests {
         #expect(dates == ["2025-11-02T06:30:00Z", "2025-11-03T06:30:00Z"])
     }
 
+    @Test("COUNT skips matches before the second occurrence of a repeated start time")
+    func unmatchedStartInRepeatedTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/New_York"))
+        // The start is 1:30 AM EST. The rule's first 1:45 AM is 5:45 UTC, before the start.
+        let start = try utc("2025-11-02T06:30:00Z")
+        let dates = try expand("FREQ=HOURLY;BYMINUTE=45;COUNT=2", from: start, calendar: calendar)
+        #expect(dates == ["2025-11-02T07:45:00Z", "2025-11-02T08:45:00Z"])
+    }
+
     @Test("A time zone without daylight saving time keeps the same offset")
     func noDaylightSavingTime() throws {
         let daily = try expand("FREQ=DAILY;COUNT=4", from: "2025-03-08T02:30:00", in: "Asia/Kolkata")

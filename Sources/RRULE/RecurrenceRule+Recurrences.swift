@@ -357,6 +357,8 @@ extension Recurrences {
         /// Counts a date and returns it if it's in the range,
         /// or returns `nil` and possibly ends the sequence.
         private mutating func deliver(_ date: Date) -> Date? {
+            // During a repeated hour, a later local time can resolve to a date before the start.
+            guard date >= start else { return nil }
             if let lastDate, date <= lastDate {
                 // RFC 5545, section 3.8.5.3: "Duplicate instances are ignored."
                 return nil
